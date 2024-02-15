@@ -1,0 +1,23 @@
+{
+  "name": "n8npay",
+  "type": "module",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "nodemon index.js"
+  },
+  "author": "Ritank",
+  "license": "ISC",
+  "dependencies": {
+    "circular-json": "^0.5.9",
+    "cors": "^2.8.5",
+    "emailjs": "^4.0.3",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "nodemon": "^3.0.3",
+    "open": "^10.0.3",
+    "stripe": "^14.13.0"
+  }
+}
