@@ -18,14 +18,14 @@ const webhook = 'http://127.0.0.1:5678/webhook/startAutotask'
  }
 
 
-export async function updateStatus(status , count){
+export async function updateStatus(status , count , custId){
     try{
         await fetch('http://127.0.0.1:5678/webhook/sendpaymentstatus', {
             method: "POST",
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({status , count})
+            body: JSON.stringify({status , count , custId})
         })
     }
     catch(error){
@@ -48,3 +48,17 @@ export async function startpay(extApprovalContactResponse , id){
     }
 }
 
+export async function cancelSubscriptionFlow(id){
+    try{
+        await fetch('http://127.0.0.1:5678/webhook/subscriptioncancellation', {
+            method: 'POST',
+            headers:{
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({id})
+        })
+    }
+    catch(error){
+        console.log(error)
+    }
+}

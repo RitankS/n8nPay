@@ -3,7 +3,7 @@ import CircularJSON from "circular-json"
 import open from "open"
 import cron from "node-cron"
 import { triggerFlow } from "../router/n8n.js"
-import { updateStatus , startpay} from "../router/n8n.js"
+import { updateStatus , startpay , cancelSubscriptionFlow} from "../router/n8n.js"
 const STRIPE_KEY = 'sk_test_51Nv0dVSHUS8UbeVicJZf3XZJf72DL9Fs3HP1rXnQzHtaXxMKXwWfua2zi8LQjmmboeNJc3odYs7cvT9Q5YIChY5I00Pocly1O1'
 
 
@@ -207,9 +207,9 @@ export const subsstatus = async (req, res) => {
     );
     const payStatus = session.payment_status
     if (payStatus === 'paid') {
-      updateStatus(payStatus, count)
+      updateStatus(payStatus, count , custId)
     } else {
-      updateStatus("unpaid", count)
+      updateStatus("unpaid", count , custId)
     }
     console.log(payStatus)
     res.status(200).json(CircularJSON.stringify({payStatus }))
@@ -221,8 +221,8 @@ export const subsstatus = async (req, res) => {
 
 //creating the ticket for the paid Quotes
 export const createTicketpaid = async (req, res) => {
-  const { companyID, title} = req.body;
-  console.log(companyID, title);
+  const { companyID, title , customerId} = req.body;
+  console.log(companyID, title , customerId);
   
   try {
     const payload = {
@@ -231,7 +231,8 @@ export const createTicketpaid = async (req, res) => {
       priority: 1,
       status: 1,
       title,
-      queueID: 5
+      queueID: 5,
+      description: `customer id for this payment is :- ${customerId}`
     };
 
     const response = await fetch('https://webservices24.autotask.net/atservicesrest/v1.0/Tickets', {
@@ -391,7 +392,84 @@ export const checkLoad = async () => {
 
 
 //subscription cacellation using the Autotask ticket
+let subsId;
+export const getSubs = async (req, res) => {
+  const Stripe = new stripe(STRIPE_KEY);
+  try {
+    const { custId } = req.body;
+    const subscriptions = await Stripe.subscriptions.list({
+      customer: custId,
+      limit: 1,
+    });
 
+    // Check if there is any data in the subscriptions response
+    if (subscriptions.data && subscriptions.data.length > 0) {
+       subsId = subscriptions.data[0].id; // Accessing the id from the first element
+      console.log("the subscriber's ID is:", subsId);
+      res.status(200).json({ id: subsId }); // Sending just the ID in the response
+    } else {
+      res.status(404).json({ error: "No subscriptions found for the provided customer ID" });
+    }
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
+const processedTicketIds = new Set(); // Initialize a set to store processed ticket IDs
+
+export const checkTickets = async (req, res) => {
+  try {
+    const response = await fetch(`https://webservices24.autotask.net/atservicesrest/v1.0/Tickets/query?search={"filter":[{"op":"exist","field":"id"}]}`, {
+      method: 'GET',
+      headers: {
+        "ApiIntegrationCode": 'FPN24RSGC2MFCSZ6SX5BAJJKWNG',
+        'UserName': 'gg3ebdptems75sb@bask.com',
+        'Secret': '6y*SZ@8s#1jNYq~7z3G$Xi$50',
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response && response.ok) {
+      const responseData = await response.json();
+      const tickets = responseData.items;
+      
+      for (const ticket of tickets) {
+        if (ticket.title.toLowerCase().includes('unsubscribe')) {
+          const ticketId = ticket.id;
+          if (!processedTicketIds.has(ticketId)) { // Check if the ticket ID has not been processed
+            // Call your function with the ticketId
+            console.log(ticketId);
+            cancelSubscriptionFlow(ticketId);
+            processedTicketIds.add(ticketId); // Add the processed ticket ID to the set
+          }
+        }
+      }
+    } else {
+      console.error('Failed to fetch tickets');
+    }
+  } catch (error) {
+    console.error('Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+}
+
+
+
+//cancel subscription 
+export const cancelSubscription = async(req,res)=>{
+  const Stripe = new stripe(STRIPE_KEY);
+  const {subsId}= req.body
+  try{
+    const subscription = await Stripe.subscriptions.cancel(
+      subsId
+    );
+    res.status(200).json(CircularJSON.stringify({subscription}))
+  }
+  catch(error){
+    res.status(500).json(CircularJSON.stringify({error: error.message}))
+  }
+}
 
 //cron checking the quotes 
 cron.schedule('* * * * * *', async () => {
@@ -404,5 +482,14 @@ cron.schedule('* * * * * *', async () => {
     await checkLoad(null, null);
   } catch (error) {
     console.error('Error occurred while running checkLoad:', error);
+  }
+});
+cron.schedule('* * * * * *', async () => {
+  try {
+    console.log('Running checkTickets function...');
+    await checkTickets(); // Assuming checkTickets function is defined globally
+    console.log('checkTickets function executed successfully');
+  } catch (error) {
+    console.error('Error running checkTickets function:', error.message);
   }
 });
