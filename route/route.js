@@ -396,7 +396,7 @@ let subsId;
 export const getSubs = async (req, res) => {
   const Stripe = new stripe(STRIPE_KEY);
   try {
-    const { custId } = req.body;
+    const { custId , comapnyId } = req.body;
     const subscriptions = await Stripe.subscriptions.list({
       customer: custId,
       limit: 1,
@@ -406,7 +406,7 @@ export const getSubs = async (req, res) => {
     if (subscriptions.data && subscriptions.data.length > 0) {
        subsId = subscriptions.data[0].id; // Accessing the id from the first element
       console.log("the subscriber's ID is:", subsId);
-      res.status(200).json({ id: subsId }); // Sending just the ID in the response
+      res.status(200).json({ id: subsId , comapnyId}); // Sending just the ID in the response
     } else {
       res.status(404).json({ error: "No subscriptions found for the provided customer ID" });
     }
@@ -417,7 +417,7 @@ export const getSubs = async (req, res) => {
 
 
 const processedTicketIds = new Set(); // Initialize a set to store processed ticket IDs
-
+let ticketId
 export const checkTickets = async (req, res) => {
   try {
     const response = await fetch(`https://webservices24.autotask.net/atservicesrest/v1.0/Tickets/query?search={"filter":[{"op":"exist","field":"id"}]}`, {
@@ -436,11 +436,11 @@ export const checkTickets = async (req, res) => {
       
       for (const ticket of tickets) {
         if (ticket.title.toLowerCase().includes('unsubscribe')) {
-          const ticketId = ticket.id;
+          ticketId = ticket.id;
           if (!processedTicketIds.has(ticketId)) { // Check if the ticket ID has not been processed
             // Call your function with the ticketId
             console.log(ticketId);
-            cancelSubscriptionFlow(ticketId);
+            secondLoadBalancer(ticketId)
             processedTicketIds.add(ticketId); // Add the processed ticket ID to the set
           }
         }
@@ -459,17 +459,77 @@ export const checkTickets = async (req, res) => {
 //cancel subscription 
 export const cancelSubscription = async(req,res)=>{
   const Stripe = new stripe(STRIPE_KEY);
-  const {subsId}= req.body
+  const {subsId , companyId}= req.body
   try{
     const subscription = await Stripe.subscriptions.cancel(
       subsId
     );
-    res.status(200).json(CircularJSON.stringify({subscription}))
+    res.status(200).json(CircularJSON.stringify({subscription , companyId}))
   }
   catch(error){
     res.status(500).json(CircularJSON.stringify({error: error.message}))
   }
 }
+
+export const createTicketSubsCancel = async (req, res) => {
+  const { companyId } = req.body;
+  console.log("company id is", companyId);
+  
+  try {
+    const payload = {
+      companyID: companyId,
+      dueDateTime: new Date(),
+      priority: 2,
+      status: 5,
+      title: "Subscription Cancelled",
+      queueID: 6
+    };
+
+    const response = await fetch('https://webservices24.autotask.net/atservicesrest/v1.0/Tickets', {
+      method: 'POST',
+      headers: {
+        "ApiIntegrationCode": 'FPN24RSGC2MFCSZ6SX5BAJJKWNG',
+        'UserName': 'gg3ebdptems75sb@bask.com',
+        'Secret': '6y*SZ@8s#1jNYq~7z3G$Xi$50',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload) 
+    });
+
+    const responseData = await response.json();
+    console.log(responseData);
+    res.status(200).json(responseData); // Sending the response data directly
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+async function secondLoadBalancer(ticket) {
+  try {
+    fetch(`https://webservices24.autotask.net/atservicesrest/v1.0/Tickets/${ticket}`, {
+      method: 'GET',
+      headers: {
+        "ApiIntegrationCode": 'FPN24RSGC2MFCSZ6SX5BAJJKWNG',
+        'UserName': 'gg3ebdptems75sb@bask.com',
+        'Secret': '6y*SZ@8s#1jNYq~7z3G$Xi$50',
+        'Content-Type': 'application/json'
+      }
+    })
+      .then(response => response.json())
+      .then(data => {
+        cancelSubscriptionFlow(data);
+        console.log(data);
+      })
+      .catch(error => {
+        console.log(error);
+      });
+  } catch (error) {
+    console.log(error);
+  }
+}
+
+
 
 //cron checking the quotes 
 cron.schedule('* * * * * *', async () => {

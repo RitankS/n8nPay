@@ -1,5 +1,5 @@
 import express from "express"
-import { sendSession , openUrl , status , takePrice , countQuotes ,createTicketpaid , createTicketunpaid , createTicketDenied , monthlySubs , subsstatus , responseBalance, checkLoad , getId , getSubs ,cancelSubscription , checkTickets} from "../route/route.js"
+import { sendSession , openUrl , status , takePrice , countQuotes ,createTicketpaid , createTicketunpaid , createTicketDenied , monthlySubs , subsstatus , responseBalance, checkLoad , getId , getSubs ,cancelSubscription , checkTickets , createTicketSubsCancel} from "../route/route.js"
 const router = express.Router()
 
 
@@ -19,4 +19,6 @@ router.post("/id" , getId)
 router.post("/subs" ,getSubs )
 router.get("/ticket" , checkTickets)
 router.post("/cancel" , cancelSubscription)
+router.post("/cancelticket" , createTicketSubsCancel)
+
 export default router

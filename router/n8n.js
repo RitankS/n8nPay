@@ -48,14 +48,14 @@ export async function startpay(extApprovalContactResponse , id){
     }
 }
 
-export async function cancelSubscriptionFlow(id){
+export async function cancelSubscriptionFlow(data){
     try{
         await fetch('http://127.0.0.1:5678/webhook/subscriptioncancellation', {
             method: 'POST',
             headers:{
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({id})
+            body: JSON.stringify({data})
         })
     }
     catch(error){
